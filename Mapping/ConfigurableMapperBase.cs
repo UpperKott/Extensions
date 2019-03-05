@@ -1,20 +1,19 @@
 ﻿using System;
+using System.Reflection;
 using System.Text.RegularExpressions;
+using Mapping.Constants;
 using Mapping.Interfaces;
 
 namespace Mapping
 {
-    public abstract class ConfigurableMapperBase<TIn, TConfig, TOut>
-        where TConfig : ConfigItemBase
+    public abstract class ConfigurableMapperBase<TIn, TType, TProp, TOut>
+        where TType : TypeConversionConfig
+        where TProp : PropertyMapperConfig
         where TOut : new()
     {
-        public const string DECIMAL_S = "decimal";
-        public const string STRING_S = "string";
-        public const string INT_S = "int";
+        protected IMapperConfig<TType, TProp> MapperConfig;
 
-        protected IMapperConfig<TConfig> MapperConfig;
-
-        public ConfigurableMapperBase(IMapperConfig<TConfig> mapperConfig)
+        public ConfigurableMapperBase(IMapperConfig<TType, TProp> mapperConfig)
         {
             MapperConfig = mapperConfig;
         }
@@ -25,39 +24,89 @@ namespace Mapping
 
             foreach (var itemConfig in MapperConfig.Properties)
             {
-                var propertyToMap = mapped.GetType().GetProperty(itemConfig.name);
-                if (propertyToMap == null) continue;
+                var targetProperty = mapped.GetType().GetProperty(itemConfig.Source);
+                if (targetProperty == null) continue;
 
-                propertyToMap.SetValue(mapped, GetValue(itemConfig, input));
+                targetProperty.SetValue(mapped, GetValue(targetProperty, itemConfig, input));
             }
 
             return mapped;
         }
 
-        private object GetValue(TConfig config, TIn input)
+        private object GetValue(PropertyInfo targetProperty, TProp config, TIn input)
         {
             var value = GetValueImpl(config, input);
 
-            if (config.pattern != null)
+            if (value != null && config.Pattern != null)
             {
-                var regex = new Regex(config.pattern, RegexOptions.Multiline);
+                var regex = new Regex(config.Pattern, RegexOptions.Multiline);
                 value = regex.Match(value.Replace("\n", "")).Value;
             }
 
-            switch (config.type)
+            if (string.IsNullOrEmpty(config.Type))
             {
-                case DECIMAL_S:
-                    var decimalValue = string.IsNullOrWhiteSpace(value) ? (decimal?)null : decimal.Parse(value);
-                    return decimalValue.HasValue ? (decimal?)Math.Round(decimalValue.Value, 2) : null;
-                case STRING_S:
+                return ParseByTargetPropertyType(targetProperty, value);
+            }
+            else
+            {
+                return ParseByConfigType(targetProperty.PropertyType, config, value);
+            }
+            
+        }
+
+        private static object ParseByTargetPropertyType(PropertyInfo targetProperty, string value)
+        {
+            if (targetProperty.PropertyType == typeof(decimal) || targetProperty.PropertyType == typeof(decimal?))
+            {
+                return decimal.TryParse(value, out var decimalValue)
+                    ? Math.Round(decimalValue, 2)
+                    : GetDefaultValue(targetProperty.PropertyType);
+            }
+
+            if (targetProperty.PropertyType == typeof(int) || targetProperty.PropertyType == typeof(int?))
+            {
+                return int.TryParse(value, out var intValue)
+                    ? intValue
+                    : GetDefaultValue(targetProperty.PropertyType);
+            }
+
+            if (targetProperty.PropertyType == typeof(bool) || targetProperty.PropertyType == typeof(bool?))
+            {
+                return bool.TryParse(value, out var intValue)
+                    ? intValue
+                    : GetDefaultValue(targetProperty.PropertyType);
+            }
+
+            if (targetProperty.PropertyType == typeof(string))
+            {
+                return value;
+            }
+
+            return GetDefaultValue(targetProperty.PropertyType);
+        }
+
+        private static object ParseByConfigType(Type targetPropertyType, TProp config, string value)
+        {
+            switch (config.Type)
+            {
+                case StandartTypes.DECIMAL_S:
+                    return string.IsNullOrWhiteSpace(value) ? GetDefaultValue(targetPropertyType) : decimal.Parse(value);
+                case StandartTypes.INT_S:
+                    return string.IsNullOrWhiteSpace(value) ? GetDefaultValue(targetPropertyType) : int.Parse(value);
+                case StandartTypes.BOOL_S:
+                    return string.IsNullOrWhiteSpace(value) ? GetDefaultValue(targetPropertyType) : bool.Parse(value);
+                case StandartTypes.STRING_S:
                     return value;
-                case INT_S:
-                    return string.IsNullOrWhiteSpace(value) ? (int?)null : int.Parse(value);
                 default:
                     return null;
             }
         }
 
-        protected abstract string GetValueImpl(TConfig config, TIn input);
+        private static object GetDefaultValue(Type t)
+        {
+            return t.IsValueType ? Activator.CreateInstance(t) : null;
+        }
+
+        protected abstract string GetValueImpl(TProp config, TIn input);
     }
 }
