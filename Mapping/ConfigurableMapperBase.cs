@@ -7,8 +7,8 @@ using Mapping.Interfaces;
 namespace Mapping
 {
     public abstract class ConfigurableMapperBase<TIn, TType, TProp, TOut>
-        where TType : TypeConversionConfig
-        where TProp : PropertyMapperConfig
+        where TType : TypeDefinition
+        where TProp : PropertyMapping
         where TOut : new()
     {
         protected IMapperConfig<TType, TProp> MapperConfig;

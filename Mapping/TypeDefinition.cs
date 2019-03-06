@@ -2,13 +2,13 @@
 
 namespace Mapping
 {
-    public class TypeConversionConfig
+    public class TypeDefinition
     {
         /// <summary>
         /// Имя типа
         /// </summary>
         [DataMember(Name = "typeName")]
         public string TypeName { get; set; }
-        public PropertyMapperConfig[] Properties { get; set; }
+        public PropertyMapping[] TypeMapping { get; set; }
     }
 }

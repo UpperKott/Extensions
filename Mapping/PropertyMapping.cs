@@ -2,7 +2,7 @@
 
 namespace Mapping
 {
-    public class PropertyMapperConfig
+    public class PropertyMapping
     {
         /// <summary>
         /// Тип конвертации в маппинге

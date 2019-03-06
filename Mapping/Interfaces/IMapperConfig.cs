@@ -1,8 +1,8 @@
 ﻿namespace Mapping.Interfaces
 {
-    public interface IMapperConfig<TType,TProp> where TType : TypeConversionConfig where TProp : PropertyMapperConfig
+    public interface IMapperConfig<TType,TProp> where TType : TypeDefinition where TProp : PropertyMapping
     {
-        TType[] Types { get; set; }
+        TType[] TypeDefinitions { get; set; }
         TProp[] Properties { get; set; }
     }
 }
